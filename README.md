@@ -3,14 +3,14 @@ aws-ec2-ebs-automatic-snapshot-bash
 
 ####Bash script for Automatic EBS Snapshots and Cleanup on Amazon Web Services (AWS)
 
-Written by  **[AWS Consultants - Casey Labs Inc.] (http://www.caseylabs.com)**
-*Contact us for all your Amazon Web Services Consulting needs!*
+This version will allow you to perform automatic EBS Snapshots for several EC2 instances from a single instance. Extremely helpful if you have acquired a mass of instances and don't want to go through the trouble of creating a crontab and install the aws tools on ever instance.
 
 ===================================
 
 **How it works:**
 ebs-snapshot.sh will:
-- Determine the instance ID of the EC2 server on which the script runs
+- Looks for the instance IDs in the `instance_ids` file looping through each one
+- It retrieves the given name of the instance
 - Gather a list of all volume IDs attached to that instance
 - Take a snapshot of each attached volume
 - The script will then delete all associated snapshots taken by the script that are older than 7 days
@@ -75,6 +75,13 @@ _Output Format_: enter "text"
 Then copy this Bash script to /opt/aws/ebs-snapshot.sh and make it executable:
 ```
 chmod +x /opt/aws/ebs-snapshot.sh
+```
+
+In the same directory create your `instance_ids` file and populate each instance's id on it's own line:
+```
+i-abcd0123
+i-efgh4567
+i-ijkl8900
 ```
 
 You should then setup a cron job in order to schedule a nightly backup. Example crontab job:

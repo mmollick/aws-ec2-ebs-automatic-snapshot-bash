@@ -80,6 +80,8 @@ set -o pipefail
 	#
 	# Copy this script to /opt/aws/ebs-snapshot.sh
 	# And make it exectuable: chmod +x /opt/aws/ebs-snapshot.sh
+	# 
+	# Create your /opt/aws/instance_ids file and place each instance id on it's own line.
 	#
 	# Then setup a crontab job for nightly backups:
 	# (You will have to specify the location of the AWS CLI Config file)
@@ -92,7 +94,7 @@ set -o pipefail
 ## Variable Declartions ##
 
 # Get Instance Details
-instance_id=$(wget -q -O- http://169.254.169.254/latest/meta-data/instance-id)
+instance_ids=(`cat "/opt/aws/instance_ids"`)
 region=$(wget -q -O- http://169.254.169.254/latest/meta-data/placement/availability-zone | sed -e 's/\([1-9]\).$/\1/g')
 
 # Set Logging Options
@@ -137,7 +139,7 @@ snapshot_volumes() {
 		log "Volume ID is $volume_id"
 
 		# Take a snapshot of the current volume, and capture the resulting snapshot ID
-		snapshot_description="$(hostname)-backup-$(date +%Y-%m-%d)"
+		snapshot_description="$instance_name-backup-$(date +%Y-%m-%d)"
 
 		snapshot_id=$(aws ec2 create-snapshot --region $region --output=text --description $snapshot_description --volume-id $volume_id --query SnapshotId)
 		log "New snapshot is $snapshot_id"
@@ -175,8 +177,16 @@ cleanup_snapshots() {
 log_setup
 prerequisite_check
 
-# Grab all volume IDs attached to this instance
-volume_list=$(aws ec2 describe-volumes --region $region --filters Name=attachment.instance-id,Values=$instance_id --query Volumes[].VolumeId --output text)
+# Backup all instances listed in instance_ids
+for instance_id in "${instance_ids[@]}"; do
 
-snapshot_volumes
-cleanup_snapshots
+	instance_name=$(aws ec2 describe-tags --filters "Name=key,Values=Name"  "Name=resource-id,Values=$instance_id" --query Tags[0].Value --output text)
+	log "Creating snapshot for $instance_name"
+
+	# Grab all volume IDs attached to this instance
+	volume_list=$(aws ec2 describe-volumes --region $region --filters Name=attachment.instance-id,Values=$instance_id --query Volumes[].VolumeId --output text)
+
+	log "Instance ID is $instance_id"
+	snapshot_volumes
+	cleanup_snapshots
+done
